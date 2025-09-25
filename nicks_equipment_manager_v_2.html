@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nick’s Equipment Manager — v2.3</title>
+  <style>
+    :root{ --bg:#0f1216; --panel:#171b21; --muted:#232833; --text:#e8eef7; --sub:#9fb0c4; --acc:#3aa3ff; --green:#2ecc71; --red:#ff6b6b; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    h1{margin:0 0 8px 0;font-size:20px}
+    .app{max-width:1200px;margin:24px auto;padding:16px}
+    .bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .card{background:var(--panel);border:1px solid var(--muted);border-radius:14px;padding:14px}
+    input,select,textarea{background:#0c0f13;border:1px solid var(--muted);color:var(--text);padding:10px;border-radius:10px}
+    input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px #3aa3ff33}
+    button{border:0;background:var(--acc);color:#02243d;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    button.ghost{background:#0c0f13;color:var(--text);border:1px solid var(--muted)}
+    button.danger{background:var(--red);color:#250505}
+    button.secondary{background:#243140;color:#cfe6ff}
+    .grid{overflow:auto;border:1px solid var(--muted);border-radius:14px}
+    .row{display:grid;grid-template-columns:1.1fr .9fr 1.5fr .8fr 1fr 170px;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--muted)}
+    .row.header{font-weight:700;color:#9fb0c4;border-bottom:2px solid var(--muted)}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+    .pos{background:#10381f;color:#b9f6cf;border:1px solid #1e7f47}
+    .out{background:#3a1b18;color:#ffccc7;border:1px solid #9e463b}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    .small{font-size:12px;color:#9fb0c4}
+    .split{display:grid;grid-template-columns: 1.35fr .65fr; gap:14px}
+    @media (max-width:1000px){.split{grid-template-columns:1fr}}
+    .hidden{display:none}
+    .catrow{display:grid;grid-template-columns:1fr 80px 160px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--muted)}
+    .countpill{font-size:12px;padding:2px 8px;border:1px solid var(--muted);border-radius:999px;color:#9fb0c4}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="bar">
+      <h1>Nick’s Equipment Manager — v2.3</h1>
+      <span class="small">Offline, single‑file. Data persists to localStorage.</span>
+    </div>
+
+    <div class="split">
+      <!-- Left: List & Filters -->
+      <section class="card">
+        <div class="bar">
+          <input id="search" type="search" placeholder="Search name, category, notes, custodian…" style="flex:1;min-width:220px" />
+          <label class="small"><input type="checkbox" id="filterOut" /> Show only NOT in possession</label>
+          <button id="addBtn" type="button">+ Add item</button>
+          <button id="resetBtn" type="button" class="danger" title="Reset to the original seeded list">Reset</button>
+        </div>
+
+        <div class="grid" id="grid">
+          <div class="row header">
+            <div>Name</div>
+            <div>Category</div>
+            <div>Notes / Condition</div>
+            <div>Possession</div>
+            <div>Custodian (if out)</div>
+            <div>Actions</div>
+          </div>
+          <div id="rows"></div>
+        </div>
+        <div class="small" style="margin-top:8px" id="count"></div>
+      </section>
+
+      <!-- Right: Editor + Categories -->
+      <section class="card">
+        <h3 style="margin-top:0">Add / Edit</h3>
+        <form id="form" autocomplete="off">
+          <input type="hidden" id="id" />
+          <div class="bar" style="align-items:flex-start">
+            <div style="flex:1">
+              <label class="small">Name</label>
+              <input id="name" required placeholder="e.g., Traxxas Slash 4x4 LCG VXL" style="width:100%" />
+            </div>
+            <div>
+              <label class="small">Category</label>
+              <select id="category"></select>
+            </div>
+          </div>
+          <div style="margin:8px 0">
+            <label class="small">Notes / Condition</label>
+            <textarea id="notes" rows="4" placeholder="Repair status, upgrades, to-dos…" style="width:100%"></textarea>
+          </div>
+          <div class="bar">
+            <label><input id="inPossession" type="checkbox" checked /> In my possession</label>
+            <input id="whoHas" placeholder="Who has it?" disabled />
+            <button type="submit">Save</button>
+            <button type="button" id="cancelBtn" class="ghost">Cancel</button>
+          </div>
+        </form>
+        <div class="small" style="margin-bottom:8px">Tip: Double‑click a row to edit. You can also press <kbd>Delete</kbd> while a row is focused.</div>
+
+        <div class="card" style="padding:12px;background:#12161c;border-color:#2a3340">
+          <div class="bar" style="margin-bottom:6px">
+            <h3 style="margin:0">Categories</h3>
+            <span class="small">Add, rename, or delete (only if unused)</span>
+          </div>
+          <div class="bar">
+            <input id="newCat" placeholder="New category name" style="flex:1" />
+            <button id="addCatBtn" type="button" class="secondary">Add</button>
+          </div>
+          <div id="catList"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Storage / Keys ----------
+    const KEY = 'equipmentManagerData.v2_3';
+
+    const defaultCats = ['RC Cars','Motorcycles & Vehicles','Tech & Electronics'];
+
+    const seedItems = [
+      // RC Cars (current set)
+      {name:'Traxxas Slash 4x4 LCG VXL',category:'RC Cars',notes:'Upgraded aluminum parts like Slash Ultimate; RPM A‑arms.',inPossession:true,whoHas:''},
+      {name:'Traxxas Slash 4x4 Ultimate',category:'RC Cars',notes:'Stock.',inPossession:true,whoHas:''},
+      {name:'Traxxas Slash BL-2s',category:'RC Cars',notes:'Fully upgraded: Hobbywing BL120 ESC, aluminum bulkheads, Amazon servo, Radiolink RC6GS, GTR shocks, sway bars, steel turnbuckles, Pro‑Line beadlocks & Badlands tires.',inPossession:true,whoHas:''},
+      {name:'Traxxas Slash 2WD VXL',category:'RC Cars',notes:'Aftermarket brushless; aluminum shock towers; Hot Racing transmission; Amazon turnbuckles; Axial servo; LCG chassis; missing ESC; stripped shock tower mounts.',inPossession:true,whoHas:''},
+      {name:'Rustler VXL',category:'RC Cars',notes:'Spec’d like Slash 4x4 LCG VXL; no tires; needs brushless motor; has 3S ESC; Big Bore shocks; maybe needs RX/TX.',inPossession:true,whoHas:''},
+      {name:'Traxxas TRX-4 Blazer',category:'RC Cars',notes:'Stock except motor replaced ~3 months ago.',inPossession:true,whoHas:''},
+      {name:'Axial Bomber',category:'RC Cars',notes:'Custom stainless panels; QUICRUN WP1080 ESC; Traxxas Titan motor; steel axles; Radiolink; upgraded wheels/tires.',inPossession:true,whoHas:''},
+      {name:'Traxxas Hoss VXL',category:'RC Cars',notes:'GPM stabilizer links (front broken); Amazon servo; worn aluminum upgrades; old bearings.',inPossession:true,whoHas:''},
+      {name:'Axial SCX24 Dual Steer',category:'RC Cars',notes:"3D‑printed '50s truck body.",inPossession:true,whoHas:''},
+      {name:'Axial SCX24 “BIG Frank”',category:'RC Cars',notes:'Hot Racing aluminum frame; Radiolink; MoFoRC Big Block; RC4WD tires; steel beadlocks; broken servo horn.',inPossession:true,whoHas:''},
+      {name:'Axial SCX24 (1979 Chevy square body)',category:'RC Cars',notes:'Treal weighted rims; aftermarket tires; MoFoRC Big Block.',inPossession:true,whoHas:''},
+      {name:'Carisma GT24 Hyundai',category:'RC Cars',notes:'Stock; uses special LiPos; glued slipper clutch.',inPossession:true,whoHas:''},
+      {name:'FMS 6x6 Flatbed',category:'RC Cars',notes:'3D‑printed bed; MoFoRC Big Block; stiffer springs; tows modified Big Country gooseneck.',inPossession:true,whoHas:''},
+      {name:'FMS 6x6 Powerwagon',category:'RC Cars',notes:'Axial transmitter; RC4WD tires; MoFoRC Big Block; battery upgrade.',inPossession:true,whoHas:''},
+      {name:'Traxxas Teton VXL',category:'RC Cars',notes:'Aftermarket brushless ESC/motor; aluminum A‑arms; steel driveshafts; broken front diff case.',inPossession:true,whoHas:''},
+      {name:'Pro Boat Blackjack 9',category:'RC Cars',notes:'RC boat.',inPossession:true,whoHas:''},
+      {name:'Radio Shack Hummer H2 MatTrax',category:'RC Cars',notes:'Non‑functional; needs new battery.',inPossession:true,whoHas:''},
+
+      // Motorcycles & Vehicles (updates)
+      {name:'1990 Harley‑Davidson Sportster 883',category:'Motorcycles & Vehicles',notes:'Needs carb cleaning + planned upgrades.',inPossession:true,whoHas:''},
+      {name:'1969 Harley‑Davidson Servi‑Car',category:'Motorcycles & Vehicles',notes:'Good running condition.',inPossession:true,whoHas:''},
+      {name:'2001 Harley‑Davidson Fatboy',category:'Motorcycles & Vehicles',notes:'Fully functional and repaired (updated Aug 11, 2025).',inPossession:true,whoHas:''},
+      {name:'1979 Honda ATC110',category:'Motorcycles & Vehicles',notes:'Restored; mismatched rear tires.',inPossession:true,whoHas:''},
+      {name:'Green minibike',category:'Motorcycles & Vehicles',notes:'Upgraded to 6.5hp engine; Mikuni MV carb; aftermarket air filter; inline fuel filter.',inPossession:true,whoHas:''},
+      {name:'Mega Moto 80',category:'Motorcycles & Vehicles',notes:'Fully built with custom billet front end and motor mounting; plan: adjustable rear axle housing.',inPossession:true,whoHas:''},
+      {name:'Trek 3700 3 Series mountain bike',category:'Motorcycles & Vehicles',notes:'Needs new grips.',inPossession:true,whoHas:''},
+      {name:'Fuji Nevada 29" mountain bike',category:'Motorcycles & Vehicles',notes:'—',inPossession:true,whoHas:''},
+
+      // Tech & Electronics (after removals)
+      {name:'Bambu Lab P1S',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Epson Short Throw Projector',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Epson Projector',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Asus GL503V laptop',category:'Tech & Electronics',notes:'Only computer with proper Cura profile for Anycubic 4Max Pro 2.0 (historical note).',inPossession:true,whoHas:''},
+      {name:'Acer Flip laptop',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Raspberry Pi 4',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Xbox One S',category:'Tech & Electronics',notes:'Racing simulator hooked here (Forza Horizon 3–5).',inPossession:true,whoHas:''},
+      {name:'Nintendo Wii',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Samsung 75" Smart TV',category:'Tech & Electronics',notes:'Home theater display.',inPossession:true,whoHas:''},
+      {name:'Sharp 70" TV',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'20" monitor',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'24" monitor',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Dragon solar charger',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'JBL Clip 4',category:'Tech & Electronics',notes:'Bluetooth speaker.',inPossession:true,whoHas:''},
+      {name:'Vocboom speaker',category:'Tech & Electronics',notes:'Bluetooth speaker.',inPossession:true,whoHas:''},
+      {name:'Aomis speaker',category:'Tech & Electronics',notes:'Bluetooth speaker.',inPossession:true,whoHas:''},
+      {name:'Azeron Cyborg',category:'Tech & Electronics',notes:'Will 3D‑print replacement thumb‑button mount.',inPossession:true,whoHas:''},
+      {name:'Redragon wireless gaming mouse',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Soundcore Space A40',category:'Tech & Electronics',notes:'Earbuds.',inPossession:true,whoHas:''},
+      {name:'Soundcore Life Q30',category:'Tech & Electronics',notes:'Headphones.',inPossession:true,whoHas:''},
+      {name:'Pyle Pro Bluetooth home amplifier #1',category:'Tech & Electronics',notes:'Runs shakers in house; tied to surround system.',inPossession:true,whoHas:''},
+      {name:'Pyle Pro Bluetooth home amplifier #2',category:'Tech & Electronics',notes:'Bookshelf speakers + 8" powered sub on simulator.',inPossession:true,whoHas:''},
+      {name:'Trekz Titanium by AfterShokz',category:'Tech & Electronics',notes:'Bone‑conduction headset.',inPossession:true,whoHas:''},
+      {name:'Echo Buds (Standard)',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Echo Buds (Noise Cancelling)',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Amazon Echo Show',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Echo Pop',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Echo Dot #1',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Echo Dot #2',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'iPhone 13 Pro',category:'Tech & Electronics',notes:'Gifted to little sister; broken glass back.',inPossession:false,whoHas:'Little sister'},
+      {name:'Privia PX‑575R keyboard',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Casio CDP‑S160 keyboard',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Ominous drone',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'DJI Phantom drone',category:'Tech & Electronics',notes:'Blown motor speed controller.',inPossession:true,whoHas:''},
+      {name:'LED mini projector',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+      {name:'Line 6 Spider III (15W)',category:'Tech & Electronics',notes:'Guitar amp.',inPossession:true,whoHas:''},
+      {name:'Line 6 POD',category:'Tech & Electronics',notes:'Ultimate Guitar Direct Box.',inPossession:true,whoHas:''},
+      {name:'3D LED hologram fan',category:'Tech & Electronics',notes:'—',inPossession:true,whoHas:''},
+    ].map(x=> ({id:crypto.randomUUID(), ...x}));
+
+    const state = { items: [], categories: [], query:'', showOutOnly:false };
+
+    function load(){
+      const raw = localStorage.getItem(KEY);
+      if(raw){
+        try{ const obj = JSON.parse(raw); state.items = obj.items||[]; state.categories = obj.categories&&obj.categories.length? obj.categories:[...defaultCats]; }
+        catch{ seed(); }
+      } else { seed(); }
+      renderAll();
+    }
+    function seed(){ state.items=[...seedItems]; state.categories=[...defaultCats]; save(); }
+    function save(){ localStorage.setItem(KEY, JSON.stringify({items:state.items, categories:state.categories})); }
+
+    const $ = s=>document.querySelector(s);
+
+    // ---------- Filters ----------
+    function applyFilters(list){ const q=(document.querySelector('#search').value||'').trim().toLowerCase(); let out=[...list]; if(q){ out=out.filter(it=>[it.name,it.category,it.notes,(it.whoHas||'')].some(f=>(f||'').toLowerCase().includes(q))); } if(document.querySelector('#filterOut').checked){ out=out.filter(it=>!it.inPossession);} return out; }
+
+    // ---------- Renderers ----------
+    function renderGrid(){
+      const rows = document.querySelector('#rows');
+      rows.innerHTML = '';
+      const list = applyFilters(state.items);
+      for(const it of list){
+        const r = document.createElement('div');
+        r.className = 'row'; r.tabIndex = 0; r.dataset.id = it.id;
+        r.innerHTML = `
+          <div>${it.name}</div>
+          <div>${it.category}</div>
+          <div>${it.notes||'—'}</div>
+          <div>${it.inPossession?'<span class="badge pos">In possession</span>':'<span class="badge out">Out</span>'}</div>
+          <div>${it.inPossession?'—':(it.whoHas||'Unknown')}</div>
+          <div>
+            <div class="controls">
+              <button type="button" class="secondary edit" data-id="${it.id}">Edit</button>
+              <button type="button" class="danger del" data-id="${it.id}">Delete</button>
+            </div>
+          </div>`;
+        rows.appendChild(r);
+      }
+      document.querySelector('#count').textContent = `${list.length} shown / ${state.items.length} total`;
+    }
+
+    function renderCategorySelect(){ const sel=document.querySelector('#category'); sel.innerHTML=''; state.categories.forEach(c=>{ const o=document.createElement('option'); o.textContent=c; sel.appendChild(o); }); }
+
+    function renderCategoryPanel(){
+      const el = document.querySelector('#catList'); el.innerHTML='';
+      const counts = Object.fromEntries(state.categories.map(c=>[c,0]));
+      state.items.forEach(it=>{ if(counts[it.category]!=null) counts[it.category]++; });
+      for(const cat of state.categories){
+        const used = counts[cat]||0;
+        const row = document.createElement('div'); row.className='catrow';
+        row.innerHTML = `
+          <div>${cat}</div>
+          <div><span class="countpill">${used} item${used===1?'':'s'}</span></div>
+          <div>
+            <div class="controls">
+              <button type="button" class="secondary cat-rename" data-cat="${cat}">Rename</button>
+              <button type="button" class="danger cat-delete" data-cat="${cat}" ${used>0?'disabled':''}>Delete</button>
+            </div>
+          </div>`;
+        el.appendChild(row);
+      }
+    }
+
+    function renderAll(){ renderCategorySelect(); renderCategoryPanel(); renderGrid(); }
+
+    // ---------- CRUD ----------
+    function edit(id){ const it=state.items.find(x=>x.id===id); if(!it) return; document.querySelector('#id').value=it.id; document.querySelector('#name').value=it.name; document.querySelector('#category').value=it.category; document.querySelector('#notes').value=it.notes||''; document.querySelector('#inPossession').checked=!!it.inPossession; document.querySelector('#whoHas').value=it.whoHas||''; document.querySelector('#whoHas').disabled=!!it.inPossession; document.querySelector('#name').focus(); }
+    function del(id){ const it=state.items.find(x=>x.id===id); if(!it) return; if(!confirm(`Delete "${it.name}"?`)) return; state.items = state.items.filter(x=>x.id!==id); save(); renderGrid(); }
+    function upsert(e){ e.preventDefault(); const id=document.querySelector('#id').value||crypto.randomUUID(); const obj={ id, name:document.querySelector('#name').value.trim(), category:document.querySelector('#category').value, notes:document.querySelector('#notes').value.trim(), inPossession:document.querySelector('#inPossession').checked, whoHas:document.querySelector('#inPossession').checked?'':document.querySelector('#whoHas').value.trim() }; if(!obj.name){ alert('Name required'); return;} const idx=state.items.findIndex(x=>x.id===id); if(idx>=0) state.items[idx]=obj; else state.items.unshift(obj); save(); renderGrid(); clearForm(); }
+    function clearForm(){ document.querySelector('#form').reset(); document.querySelector('#inPossession').checked=true; document.querySelector('#whoHas').disabled=true; document.querySelector('#id').value=''; }
+
+    // ---------- Category ops ----------
+    function addCategory(){ const val=document.querySelector('#newCat').value.trim(); if(!val) return; if(state.categories.some(c=>c.toLowerCase()===val.toLowerCase())){ alert('Category exists.'); return;} state.categories.push(val); document.querySelector('#newCat').value=''; save(); renderCategorySelect(); renderCategoryPanel(); }
+    function renameCategory(oldName){ const next=prompt('Rename category to:', oldName); if(!next) return; const t=next.trim(); if(!t) return; if(state.categories.some(c=>c.toLowerCase()===t.toLowerCase())){ alert('That name already exists.'); return;} state.categories=state.categories.map(c=>c===oldName?t:c); state.items=state.items.map(it=>it.category===oldName?{...it,category:t}:it); save(); renderAll(); }
+    function deleteCategory(name){ state.categories=state.categories.filter(c=>c!==name); save(); renderAll(); }
+
+    // ---------- Events ----------
+    document.querySelector('#form').addEventListener('submit', upsert);
+    document.querySelector('#cancelBtn').addEventListener('click', clearForm);
+    document.querySelector('#inPossession').addEventListener('change', e=>{ document.querySelector('#whoHas').disabled=e.target.checked; if(!e.target.checked) document.querySelector('#whoHas').focus(); });
+    document.querySelector('#search').addEventListener('input', renderGrid);
+    document.querySelector('#filterOut').addEventListener('change', renderGrid);
+    document.querySelector('#addBtn').addEventListener('click', ()=>{ clearForm(); document.querySelector('#name').focus(); });
+    document.querySelector('#resetBtn').addEventListener('click', ()=>{ if(!confirm('Reset to original seeded list and default categories? This overwrites current data.')) return; seed(); renderAll(); clearForm(); });
+
+    // robust row actions via event delegation
+    document.querySelector('#rows').addEventListener('click', (e)=>{
+      const delBtn = e.target.closest('button.del');
+      if(delBtn){ del(delBtn.dataset.id); return; }
+      const editBtn = e.target.closest('button.edit');
+      if(editBtn){ edit(editBtn.dataset.id); return; }
+    });
+    document.querySelector('#rows').addEventListener('keydown', (e)=>{ if(e.key==='Delete'){ const row=e.target.closest('.row'); if(!row) return; del(row.dataset.id); }});
+
+    // category panel
+    document.querySelector('#addCatBtn').addEventListener('click', addCategory);
+    document.querySelector('#newCat').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addCategory(); }});
+    document.querySelector('#catList').addEventListener('click', (e)=>{
+      const rn = e.target.closest('button.cat-rename'); if(rn){ renameCategory(rn.dataset.cat); return; }
+      const rm = e.target.closest('button.cat-delete'); if(rm && !rm.disabled){ deleteCategory(rm.dataset.cat); return; }
+    });
+
+    // init
+    load();
+  </script>
+</body>
+</html>
